@@ -1,10 +1,12 @@
 /** Copyright 2010-2012 Twitter, Inc.*/
 package com.twitter.service.snowflake
 
-import com.twitter.ostrich.stats.Stats
 import com.twitter.service.snowflake.gen._
 import java.util.Random
 import com.twitter.logging.Logger
+import com.twitter.finagle.stats.{Counter, LoadedStatsReceiver}
+import com.twitter.finagle.tracing.Tracer
+import com.twitter.util.Future
 
 /**
  * An object that generates IDs.
@@ -13,14 +15,25 @@ import com.twitter.logging.Logger
  * per process
  */
 class IdWorker(val workerId: Long, val datacenterId: Long, private val reporter: Reporter, var sequence: Long = 0L)
-extends Snowflake.Iface {
-  private[this] def genCounter(agent: String) = {
-    Stats.incr("ids_generated")
-    Stats.incr("ids_generated_%s".format(agent))
-  }
-  private[this] val exceptionCounter = Stats.getCounter("exceptions")
+extends Snowflake.FutureIface {
+  val statsReceiver = LoadedStatsReceiver.scope("snowflake")
+
+  private[this] val exceptionCounter = statsReceiver.counter("exceptions")
+  private[this] val idsGeneratedCounter = statsReceiver.counter("ids_generated")
   private[this] val log = Logger.get
   private[this] val rand = new Random
+  private[this] var userAgentCounters = collection.mutable.Map[String, Counter]()
+
+  private[this] def genCounter(agent: String) = {
+    idsGeneratedCounter.incr()
+
+    // TODO: How to replace this?
+    //Stats.incr("ids_generated_%s".format(agent))
+    val uaCounterKey = "ids_generated_%s".format(agent)
+//    val uaCounter = userAgentCounters getOrElseUpdate(uaCounterKey, statsReceiver.counter(uaCounterKey))
+//    uaCounter.incr()
+    statsReceiver.counter(uaCounterKey).incr()
+  }
 
   val twepoch = 1288834974657L
 
@@ -51,22 +64,25 @@ extends Snowflake.Iface {
   log.info("worker starting. timestamp left shift %d, datacenter id bits %d, worker id bits %d, sequence bits %d, workerid %d",
     timestampLeftShift, datacenterIdBits, workerIdBits, sequenceBits, workerId)
 
-  def get_id(useragent: String): Long = {
+  // Implement interface methods
+  def getId(useragent: String): Future[Long] = {
     if (!validUseragent(useragent)) {
       exceptionCounter.incr(1)
-      throw new InvalidUserAgentError
+      throw new InvalidUserAgentError(useragent)
     }
 
     val id = nextId()
     genCounter(useragent)
 
-    reporter.report(new AuditLogEntry(id, useragent, rand.nextLong))
-    id
+    reporter.report(AuditLogEntry(id, useragent, rand.nextLong))
+    Future.value(id)
   }
 
-  def get_worker_id(): Long = workerId
-  def get_datacenter_id(): Long = datacenterId
-  def get_timestamp() = System.currentTimeMillis
+  def getWorkerId(): Future[Long] = Future.value(workerId)
+  def getTimestamp(): Future[Long] = Future.value(System.currentTimeMillis)
+  def getDatacenterId(): Future[Long] = Future.value(datacenterId)
+
+
 
   protected[snowflake] def nextId(): Long = synchronized {
     var timestamp = timeGen()

@@ -17,6 +17,16 @@
       <id>Twitter public Maven repo</id>
       <url>http://maven.twttr.com</url>
     </repository>
+      <repository>
+          <id>bdap-internal</id>
+          <name>BDAP Releases</name>
+          <url>http://archiva.admin.bdap.enernoc.net:8080/archiva/repository/internal/</url>
+      </repository>
+      <repository>
+          <id>bdap-snapshots</id>
+          <name>BDAP Snapshots</name>
+          <url>http://archiva.admin.bdap.enernoc.net:8080/archiva/repository/snapshots/</url>
+      </repository>
   </repositories>
   <pluginRepositories>
     <pluginRepository>
@@ -24,15 +34,11 @@
       <url>http://maven.twttr.com</url>
     </pluginRepository>
   </pluginRepositories>
-  <parent>
-    <groupId>com.twitter</groupId>
-    <artifactId>service-292</artifactId>
-    <version>0.0.4</version>
-  </parent>
   <properties>
     <git.dir>${project.basedir}/../.git</git.dir>
   </properties>
   <dependencies>
+    <!-- scala dependencies -->
     <!-- library dependencies -->
     <dependency>
       <groupId>commons-codec</groupId>
@@ -42,38 +48,17 @@
     <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-api</artifactId>
-      <version>1.5.8</version>
+      <version>1.6.1</version>
     </dependency>
     <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-nop</artifactId>
-      <version>1.5.8</version>
+      <version>1.6.1</version>
     </dependency>
     <dependency>
-      <groupId>thrift</groupId>
+      <groupId>org.apache.thrift</groupId>
       <artifactId>libthrift</artifactId>
-      <version>0.5.0</version>
-    </dependency>
-    <!-- project dependencies -->
-    <dependency>
-      <groupId>com.twitter</groupId>
-      <artifactId>ostrich</artifactId>
-      <version>8.2.0</version>
-    </dependency>
-    <dependency>
-      <groupId>com.twitter</groupId>
-      <artifactId>scala-zookeeper-client</artifactId>
-      <version>3.0.6</version>
-    </dependency>
-    <dependency>
-      <groupId>com.twitter</groupId>
-      <artifactId>util-logging</artifactId>
-      <version>5.3.0</version>
-    </dependency>
-    <dependency>
-      <groupId>com.twitter</groupId>
-      <artifactId>util-thrift</artifactId>
-      <version>5.3.0</version>
+      <version>0.8.0</version>
     </dependency>
   </dependencies>
   <build>
@@ -91,4 +76,17 @@
       </plugin>
     </plugins>
   </build>
+
+    <distributionManagement>
+        <repository>
+            <id>bdap-internal</id>
+            <name>BDAP Releases</name>
+            <url>http://archiva.admin.bdap.enernoc.net:8080/archiva/repository/internal/</url>
+        </repository>
+        <snapshotRepository>
+            <id>bdap-snapshots</id>
+            <name>BDAP Snapshots</name>
+            <url>http://archiva.admin.bdap.enernoc.net:8080/archiva/repository/snapshots/</url>
+        </snapshotRepository>
+    </distributionManagement>
 </project>

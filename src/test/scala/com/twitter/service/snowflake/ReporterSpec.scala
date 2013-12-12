@@ -1,6 +1,6 @@
 package com.twitter.service.snowflake
 
-import org.specs._
+import org.specs2.mutable._
 import com.twitter.service.snowflake.gen._
 
 class ReporterSpec extends SpecificationWithJUnit {

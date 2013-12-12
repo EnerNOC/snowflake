@@ -13,3 +13,5 @@ project/boot
 src_managed
 sbt-launch.jar
 .classpath.txt
+
+.idea/*

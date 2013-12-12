@@ -11,6 +11,7 @@ import com.twitter.logging.Logger
 /**
  * T is expected to be your thrift-generated Client class. Example: Snowflake.Client
  */
+@deprecated("Use Finagle ClientBuilder", "1.0.2-SNAPSHOT")
 class ThriftClient[T](implicit man: Manifest[T]) {
   def newClient(protocol: TProtocol)(implicit m: Manifest[T]): T = {
     val constructor = m.erasure.

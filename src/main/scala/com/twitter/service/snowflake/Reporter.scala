@@ -2,35 +2,46 @@
 package com.twitter.service.snowflake
 
 import com.twitter.ostrich.admin.BackgroundProcess
-import com.twitter.ostrich.stats.Stats
-import com.twitter.service.snowflake.gen.AuditLogEntry
 import java.io.ByteArrayOutputStream
-import java.net.ConnectException
-import java.net.Socket
+import java.net.InetSocketAddress
 import java.util.ArrayList
-import java.util.concurrent.LinkedBlockingDeque
-import org.apache.commons.codec.binary.Base64;
-import org.apache.thrift.transport.TIOStreamTransport;
+import java.util.concurrent.{TimeUnit, LinkedBlockingDeque}
+import org.apache.commons.codec.binary.Base64
+import org.apache.thrift.transport.TIOStreamTransport
 import org.apache.scribe.LogEntry
-import org.apache.scribe.scribe.Client
-import org.apache.thrift.protocol.{TBinaryProtocol, TProtocolFactory}
-import org.apache.thrift.transport.{TTransportException, TFramedTransport, TSocket}
-import org.apache.thrift.{TBase, TException, TFieldIdEnum, TSerializer, TDeserializer}
+import org.apache.scribe.Scribe
+import org.apache.thrift.protocol.TBinaryProtocol
+import org.apache.thrift.transport.TTransportException
 import com.twitter.logging.Logger
+import com.twitter.finagle.stats.LoadedStatsReceiver
+import scala.collection.JavaConversions._
+import com.twitter.finagle.builder.ClientBuilder
+import com.twitter.finagle.thrift.ThriftClientFramedCodec
+import com.twitter.util.Duration
+import com.twitter.finagle.tracing.BufferingTracer
+import com.twitter.service.snowflake.gen.AuditLogEntry
 
+/**
+ * Send audit log entries to Scribe for consolidation
+ * @param scribeCategory
+ * @param scribeHost
+ * @param scribePort
+ * @param scribeSocketTimeout
+ * @param flushQueueLimit
+ */
 class Reporter(scribeCategory: String, scribeHost: String, scribePort: Int, 
   scribeSocketTimeout: Int, flushQueueLimit: Int) {
   private val log = Logger.get
-  val queue = new LinkedBlockingDeque[TBase[_,_]](flushQueueLimit)
-  private val structs = new ArrayList[TBase[_,_]](100)
+  val queue = new LinkedBlockingDeque[AuditLogEntry](flushQueueLimit)
+  private val structs = new ArrayList[AuditLogEntry](100)
   private val entries = new ArrayList[LogEntry](100)
-  private var scribeClient: Option[Client] = None
+  private var scribeClient: Option[Scribe.FinagledClient] = None
   private val baos = new ByteArrayOutputStream
   private val protocol = (new TBinaryProtocol.Factory).getProtocol(new TIOStreamTransport(baos))
 
-  Stats.addGauge("reporter_flush_queue") { queue.size() }
-  val enqueueFailuresCounter = Stats.getCounter("scribe_enqueue_failures")
-  val exceptionCounter = Stats.getCounter("exceptions")
+  val reporterFlushQueueGauge = LoadedStatsReceiver.addGauge("reporter_flush_queue") { queue.size() }
+  val enqueueFailuresCounter = LoadedStatsReceiver.counter("scribe_enqueue_failures")
+  val exceptionCounter = LoadedStatsReceiver.counter("exceptions")
 
   val thread = new BackgroundProcess("Reporter flusher") {
     def runLoop {
@@ -39,9 +50,9 @@ class Reporter(scribeCategory: String, scribeHost: String, scribePort: Int,
         queue.drainTo(structs, 100)
         if (structs.size > 0) {
           for (i <- 0 until structs.size) {
-            entries.add(i, new LogEntry(scribeCategory, serialize(structs.get(i))))
+            entries.add(i, LogEntry(scribeCategory, serialize(structs.get(i))))
           }
-          scribeClient.get.Log(entries)
+          scribeClient.get.log(entries)
           log.trace("reported %d items to scribe. queue is %d".format(entries.size, queue.size))
         } else {
           log.trace("no items. gonna back off")
@@ -55,12 +66,12 @@ class Reporter(scribeCategory: String, scribeHost: String, scribePort: Int,
       }
     }
 
-    private def handle_exception(e: Throwable, items: ArrayList[TBase[_,_]]) {
+    private def handle_exception(e: Throwable, items: ArrayList[AuditLogEntry]) {
       exceptionCounter.incr(1)
       for(i <- items.size until 0) {
         val success = queue.offerFirst(items.get(i))
         if (!success) {
-          log.error("unable to reenqueue item on failure")
+          log.error("unable to re-enqueue item on failure")
         }
       }
 
@@ -74,11 +85,17 @@ class Reporter(scribeCategory: String, scribeHost: String, scribePort: Int,
       while(scribeClient.isEmpty) {
         try {
           log.debug("connection to scribe at %s:%d with timeout %d".format(scribeHost, scribePort, scribeSocketTimeout))
-          var sock = new TSocket(scribeHost, scribePort, scribeSocketTimeout)
-          sock.open()
-          var transport = new TFramedTransport(sock)
-          var protocol = new TBinaryProtocol(transport, false, false)
-          scribeClient = Some(new Client(protocol, protocol))
+
+          val service = ClientBuilder()
+            .hosts(new InetSocketAddress(scribeHost, scribePort))
+            .codec(ThriftClientFramedCodec())
+            .hostConnectionLimit(1)
+            .timeout(Duration(scribeSocketTimeout, TimeUnit.MILLISECONDS))
+            .tracer(new BufferingTracer)
+            .build()
+
+          scribeClient = Some(new Scribe.FinagledClient(service, new TBinaryProtocol.Factory()))
+
         } catch {
           case e: TTransportException => {
             exceptionCounter.incr(1)
@@ -89,7 +106,7 @@ class Reporter(scribeCategory: String, scribeHost: String, scribePort: Int,
       }
     }
 
-    private def serialize(struct: TBase[_,_]): String = {
+    private def serialize(struct: AuditLogEntry): String = {
       val b64 = new Base64(0)
       baos.reset
       struct.write(protocol)
@@ -98,7 +115,7 @@ class Reporter(scribeCategory: String, scribeHost: String, scribePort: Int,
   }
   thread.start
 
-  def report(struct: TBase[_,_]) {
+  def report(struct: AuditLogEntry) {
     try {
       val success = queue.offer(struct)
       if (!success) {
@@ -106,7 +123,7 @@ class Reporter(scribeCategory: String, scribeHost: String, scribePort: Int,
         enqueueFailuresCounter.incr()
       }
     } catch {
-      case e => {
+      case e:Throwable=> {
         exceptionCounter.incr(1)
         logError(e)
       }
