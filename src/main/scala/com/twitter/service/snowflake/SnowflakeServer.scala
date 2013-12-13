@@ -12,7 +12,7 @@ import com.twitter.logging.Logger
 import com.twitter.server.TwitterServer
 import com.twitter.service.snowflake.client.SnowflakeClient
 import com.twitter.util._
-import com.twitter.finagle.builder.ServerBuilder
+import com.twitter.finagle.builder.{Server, ServerBuilder}
 import com.twitter.finagle.thrift.ThriftServerFramedCodec
 import com.twitter.finagle.tracing.BufferingTracer
 import com.twitter.app.Flags
@@ -21,18 +21,23 @@ import org.apache.thrift.transport.TTransportException
 
 case class Peer(hostname: String, port: Int)
 
-object SnowflakeServer {
+object SnowflakeServer extends TwitterServer {
   implicit val timer = new JavaTimer(true);
 
   def apply(serverPort: Int, datacenterId: Int, workerId: Int, workerIdZkPath: String,
             skipSanityChecks: Boolean, startupSleepMs: Int, reporter: Reporter,
-            zkClient: ZkClient) =
+            zkClient: ZkClient) = {
+
+        statsReceiver.addGauge("datacenter_id") { datacenterId }
+        statsReceiver.addGauge("worker_id") { workerId }
+
         new SnowflakeServer(serverPort, datacenterId, workerId, workerIdZkPath,
           skipSanityChecks, startupSleepMs, reporter, zkClient)
+  }
 
   def main() {
     val flag = new Flags("snowflake")
-    val zkHosts = flag("zkHosts", "localhost:3000", "Comma-separated list of ZooKeeper hosts (host1:port1,host2:port2)")
+    val zkHosts = flag("zkHosts", "localhost:2181", "Comma-separated list of ZooKeeper hosts (host1:port1,host2:port2)")
     val zkConnectTimeout = flag("zkConnectTimeout", 1000, "ZK connect timeout in milliseconds")
     val zkSessionTimeout = flag("zkSessionTimeout", 5000, "ZK session timeout in milliseconds")
     val skipSanityChecks = flag("skipSanityChecks", false, "Skip sanity checks")
@@ -60,7 +65,7 @@ object SnowflakeServer {
         Duration(zkConnectTimeout(), TimeUnit.MILLISECONDS),
         Duration(zkSessionTimeout(), TimeUnit.MILLISECONDS))
 
-    SnowflakeServer(
+    val snowflake = SnowflakeServer(
         serverPort(),
         dataCenterId(),
         workerId(),
@@ -68,19 +73,26 @@ object SnowflakeServer {
         skipSanityChecks(),
         startupSleepMs(),
         reporterConfig(),
-        zkClient).start
+        zkClient)
+    snowflake.start
+    Await.ready(adminHttpServer)
+
+    onExit {
+      log.info("Closing snowflake server")
+      snowflake.server map { s => s.close() }
+
+      log.info("Closing admin server")
+      adminHttpServer.close()
+    }
   }
 }
 
 class SnowflakeServer(serverPort: Int, datacenterId: Int, workerId: Int, workerIdZkPath: String,
       skipSanityChecks: Boolean, startupSleepMs: Int, reporter: Reporter,
-      zkClient: ZkClient) extends TwitterServer {
+      zkClient: ZkClient) {
 
   private[this] val log = Logger.get
-
-  // TODO: Add function that returns Float for these gauges
-  val dataCenterGauge = statsReceiver.addGauge("datacenter_id") { datacenterId }
-  val workerGauge = statsReceiver.addGauge("worker_id") { workerId }
+  var server: Option[Server] = None
 
   def start {
     if (!skipSanityChecks) {
@@ -104,24 +116,15 @@ class SnowflakeServer(serverPort: Int, datacenterId: Int, workerId: Int, workerI
 
       //val server = new THsHaServer(service)
       log.info("Starting snowflake server on port %s", serverPort)
-      val server = ServerBuilder()
+      server = Some(ServerBuilder()
         .bindTo(new InetSocketAddress(serverPort))
         .codec(ThriftServerFramedCodec())
         .tracer(new BufferingTracer)
         .name("snowflake")
-        .build(service)
+        .build(service))
 
       //log.info("Starting server on port %s with workerThreads=%s", serverPort, serverOpts.getWorkerThreads)
       log.info("Starting admin server on port 9990")
-      Await.ready(adminHttpServer)
-
-      onExit {
-        log.info("Closing snowflake server")
-        server.close()
-
-        log.info("Closing admin server")
-        adminHttpServer.close()
-      }
     } catch {
       case e: Exception => {
         log.error(e, "Unexpected exception while initializing server: %s", e.getMessage)
