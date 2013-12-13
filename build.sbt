@@ -1,3 +1,8 @@
+import AssemblyKeys._
+import sbtassembly.Plugin.{PathList, MergeStrategy}
+
+assemblySettings
+
 com.twitter.scrooge.ScroogeSBT.newSettings
 
 organization  := "enernoc"
@@ -9,6 +14,17 @@ scalaVersion  := "2.10.3"
 mainClass in (Compile, packageBin) := Some("com.twitter.service.snowflake.SnowflakeServer")
 
 mainClass in (Compile, run) := Some("com.twitter.service.snowflake.SnowflakeServer")
+
+mainClass in (Compile, assembly) := Some("com.twitter.service.snowflake.SnowflakeServer")
+
+test in assembly := {}
+
+mergeStrategy in assembly <<= (mergeStrategy in assembly) { (old) =>
+  {
+    case PathList(ps @ _*) if ps.last endsWith ".txt.1" => MergeStrategy.discard
+    case x => old(x)
+  }
+}
 
 resolvers += "twitter repo" at "http://maven.twttr.com"
 
