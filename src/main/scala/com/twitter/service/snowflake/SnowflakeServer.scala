@@ -24,6 +24,22 @@ case class Peer(hostname: String, port: Int)
 object SnowflakeServer extends TwitterServer {
   implicit val timer = new JavaTimer(true);
 
+  val zkHosts = flag("snowflake.zookeeper.hosts", "localhost:2181", "Comma-separated list of ZooKeeper hosts (host1:port1,host2:port2)")
+  val zkConnectTimeout = flag("snowflake.zookeeper.connectTimeout", 1000, "ZK connect timeout in milliseconds")
+  val zkSessionTimeout = flag("snowflake.zookeeper.sessionTimeout", 5000, "ZK session timeout in milliseconds")
+  val skipSanityChecks = flag("snowflake.skipSanityChecks", false, "Skip sanity checks")
+  val serverPort = flag("snowflake.serverPort", 7609, "Port to bind snowflake to")
+  val dataCenterId = flag("snowflake.dataCenterId", 0, "ID for this data center")
+  val workerId = flag("snowflake.workerId", 0, "ID of snowflake worker")
+  val workerZkPath = flag("snowflake.workerZkPath", "/snowflake-servers", "ZooKeeper path for snowflake")
+  val startupSleepMs = flag("snowflake.startUpSleepMs", 10000, "Time to delay snowflake server start-up in milliseconds")
+
+  val fScribeCategory = flag("snowflake.scribe.category", "snowflake", "Scribe category")
+  val fScribeHost = flag("snowflake.scribe.host", "localhost", "Scribe host")
+  val fScribePort = flag("snowflake.scribe.port", 1463, "Scribe port")
+  val fScribeSocketTimeout = flag("snowflake.scribe.socketTimeout", 5000, "Scribe socket timeout in milliseconds")
+  val fFlushQueueLimit = flag("snowflake.scribe.flushQueueLimit", 100000, "Flush scribe queue after x messages")
+
   def apply(serverPort: Int, datacenterId: Int, workerId: Int, workerIdZkPath: String,
             skipSanityChecks: Boolean, startupSleepMs: Int, reporter: Reporter,
             zkClient: ZkClient) = {
@@ -36,22 +52,6 @@ object SnowflakeServer extends TwitterServer {
   }
 
   def main() {
-    val flag = new Flags("snowflake")
-    val zkHosts = flag("zkHosts", "localhost:2181", "Comma-separated list of ZooKeeper hosts (host1:port1,host2:port2)")
-    val zkConnectTimeout = flag("zkConnectTimeout", 1000, "ZK connect timeout in milliseconds")
-    val zkSessionTimeout = flag("zkSessionTimeout", 5000, "ZK session timeout in milliseconds")
-    val skipSanityChecks = flag("skipSanityChecks", false, "Skip sanity checks")
-    val serverPort = flag("serverPort", 7609, "Port to bind snowflake to")
-    val dataCenterId = flag("dataCenterId", 0, "ID for this data center")
-    val workerId = flag("workerId", 0, "ID of snowflake worker")
-    val workerZkPath = flag("workerZkPath", "/snowflake-servers", "ZooKeeper path for snowflake")
-    val startupSleepMs = flag("startUpSleepMs", 10000, "Time to delay snowflake server start-up in milliseconds")
-
-    val fScribeCategory = flag("scribeCategory", "snowflake", "Scribe category")
-    val fScribeHost = flag("scribeHost", "localhost", "Scribe host")
-    val fScribePort = flag("scribePort", 1463, "Scribe port")
-    val fScribeSocketTimeout = flag("scribeSocketTimeout", 5000, "Scribe socket timeout in milliseconds")
-    val fFlushQueueLimit = flag("flushQueueLimit", 100000, "Flush scribe queue after x messages")
 
     val reporterConfig = new ReporterConfig {
       scribeCategory = fScribeCategory()
