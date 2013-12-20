@@ -19,6 +19,7 @@ object SnowflakeClient {
         .hosts(new InetSocketAddress(host, port))
         .codec(ThriftClientFramedCodec())
         .hostConnectionLimit(1)
+        .tcpConnectTimeout(Duration(soTimeoutMs, TimeUnit.MILLISECONDS))
         .timeout(Duration(soTimeoutMs, TimeUnit.MILLISECONDS))
         .tracer(new BufferingTracer)
         .build()

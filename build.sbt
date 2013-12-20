@@ -5,7 +5,9 @@ assemblySettings
 
 com.twitter.scrooge.ScroogeSBT.newSettings
 
-organization  := "enernoc"
+val archiva = "http://archiva.admin.bdap.enernoc.net:8080/"
+
+organization  := "com.twitter"
 
 version       := "1.0.2-SNAPSHOT"
 
@@ -30,18 +32,15 @@ resolvers += "twitter repo" at "http://maven.twttr.com"
 
 resolvers += Resolver.sonatypeRepo("public")
 
-//resolvers += "sonatype" at "https://oss.sonatype.org/content/groups/public"
-
 libraryDependencies ++= Seq(
   "org.apache.thrift" % "libthrift" % "0.8.0",
   "com.twitter" %% "scrooge-core" % "3.11.1",
-  "com.twitter" % "twitter-server_2.10" % "1.3.1",
-  "com.twitter" % "util-zk_2.10" % "6.7.0",
-  "com.twitter" % "util-zk-common_2.10" % "6.8.1",
-  "com.twitter" % "util-zk-common_2.10" % "6.8.1",
-  "com.twitter" % "ostrich_2.10" % "9.2.1",
-  "org.specs2" %% "specs2" % "2.3.6" % "test",
-  "org.scalatest" % "scalatest_2.10" % "2.0" % "test"
+  "com.twitter" %% "twitter-server" % "1.3.1",
+  "com.twitter" %% "util-zk" % "6.8.1",
+  "com.twitter" %% "util-zk-common" % "6.8.1",
+  "com.twitter" %% "ostrich" % "9.2.1",
+  "org.scalatest" %% "scalatest" % "2.0" % "test",
+  "org.specs2" %% "specs2" % "2.3.6" % "test"
 )
 
 ideaExcludeFolders += ".idea"

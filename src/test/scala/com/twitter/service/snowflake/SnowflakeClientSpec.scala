@@ -3,11 +3,12 @@ package com.twitter.service.snowflake
 import org.specs2.mutable._
 import com.twitter.service.snowflake.gen.Snowflake
 import com.twitter.service.snowflake.client.SnowflakeClient
+import com.twitter.util.Await
 
 class SnowflakeClientSpec extends SpecificationWithJUnit {
   val port: Int = 7609
-  val host: String = "localhost"
-  val timeout: Int = 5000
+  val host: String = "172.25.12.167"
+  val timeout: Int = 25000
   val useragent: String = "SnowflakeClientSpec"
 
   "client" should {
@@ -18,7 +19,7 @@ class SnowflakeClientSpec extends SpecificationWithJUnit {
 
     "get an id" in {
       val client = SnowflakeClient(host, port, timeout)
-      val id = client.getId(useragent).get()
+      val id = Await.result(client.getId(useragent))
       println(id)
       id must be_>(0L)
     }
