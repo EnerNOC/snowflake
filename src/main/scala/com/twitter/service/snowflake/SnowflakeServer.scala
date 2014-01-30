@@ -34,6 +34,10 @@ object SnowflakeServer extends TwitterServer {
   val workerZkPath = flag("snowflake.workerZkPath", "/snowflake-servers", "ZooKeeper path for snowflake")
   val startupSleepMs = flag("snowflake.startUpSleepMs", 10000, "Time to delay snowflake server start-up in milliseconds")
 
+  val readTimeout = flag("snowflake.server.readTimeout", 1000, "Server read timeout in milliseconds")
+  val requestTimeout = flag("snowflake.server.requestTimeout", 1000, "Server request timeout in milliseconds")
+  val writeCompleteTimeout = flag("snowflake.server.writeCompleteTimeout", 1000, "Server write complete timeout in milliseconds")
+
   val fScribeCategory = flag("snowflake.scribe.category", "snowflake", "Scribe category")
   val fScribeHost = flag("snowflake.scribe.host", "localhost", "Scribe host")
   val fScribePort = flag("snowflake.scribe.port", 1463, "Scribe port")
@@ -42,13 +46,14 @@ object SnowflakeServer extends TwitterServer {
 
   def apply(serverPort: Int, datacenterId: Int, workerId: Int, workerIdZkPath: String,
             skipSanityChecks: Boolean, startupSleepMs: Int, reporter: Reporter,
-            zkClient: ZkClient) = {
+            zkClient: ZkClient, readTimeout: Int, requestTimeout: Int, writeCompleteTimeout: Int) = {
 
         statsReceiver.addGauge("datacenter_id") { datacenterId }
         statsReceiver.addGauge("worker_id") { workerId }
 
         new SnowflakeServer(serverPort, datacenterId, workerId, workerIdZkPath,
-          skipSanityChecks, startupSleepMs, reporter, zkClient)
+          skipSanityChecks, startupSleepMs, reporter, zkClient, readTimeout,
+          requestTimeout, writeCompleteTimeout)
   }
 
   def main() {
@@ -73,7 +78,11 @@ object SnowflakeServer extends TwitterServer {
         skipSanityChecks(),
         startupSleepMs(),
         reporterConfig(),
-        zkClient)
+        zkClient,
+        readTimeout(),
+        requestTimeout(),
+        writeCompleteTimeout()
+    )
     snowflake.start
     Await.ready(adminHttpServer)
 
@@ -89,7 +98,7 @@ object SnowflakeServer extends TwitterServer {
 
 class SnowflakeServer(serverPort: Int, datacenterId: Int, workerId: Int, workerIdZkPath: String,
       skipSanityChecks: Boolean, startupSleepMs: Int, reporter: Reporter,
-      zkClient: ZkClient) {
+      zkClient: ZkClient, readTimeout: Int, requestTimeout: Int, writeCompleteTimeout: Int) {
 
   private[this] val log = Logger.get
   var server: Option[Server] = None
@@ -120,6 +129,9 @@ class SnowflakeServer(serverPort: Int, datacenterId: Int, workerId: Int, workerI
         .bindTo(new InetSocketAddress(serverPort))
         .codec(ThriftServerFramedCodec())
         .tracer(new BufferingTracer)
+        .requestTimeout(Duration(requestTimeout, TimeUnit.MILLISECONDS))
+        .readTimeout(Duration(readTimeout, TimeUnit.MILLISECONDS))
+        .writeCompletionTimeout(Duration(writeCompleteTimeout, TimeUnit.MILLISECONDS))
         .name("snowflake")
         .build(service))
 
