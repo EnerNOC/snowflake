@@ -1,0 +1,5 @@
+# Running
+
+```
+nohup java -Xms2G -Xmx4G -jar snowflake-assembly-1.0.2-SNAPSHOT.jar -snowflake.zookeeper.hosts zookeeper-1.supp.ataws.enernoc.net:2181,zookeeper-2.supp.ataws.enernoc.net:2181,zookeeper-3.supp.ataws.enernoc.net:2181,zookeeper-4.supp.ataws.enernoc.net:2181,zookeeper-5.supp.ataws.enernoc.net > /home/ubuntu/app/log/snowflake.log 2>&1 &
+```

@@ -7,7 +7,7 @@ import com.twitter.util.Await
 
 class SnowflakeClientSpec extends SpecificationWithJUnit {
   val port: Int = 7609
-  val host: String = "172.25.12.167"
+  val host: String = "snowflake.mvp.enernoc.net"
   val timeout: Int = 25000
   val useragent: String = "SnowflakeClientSpec"
 
@@ -26,21 +26,21 @@ class SnowflakeClientSpec extends SpecificationWithJUnit {
 
     "get a worker id" in {
       val client = SnowflakeClient(host, port, timeout)
-      val id = client.getWorkerId().get()
+      val id = Await.result(client.getWorkerId())
       println(id)
       id mustEqual 0L
     }
 
     "get a datacenter id" in {
       val client = SnowflakeClient(host, port, timeout)
-      val id = client.getDatacenterId().get()
+      val id = Await.result(client.getDatacenterId())
       println(id)
       id mustEqual 0L
     }
 
     "get a timestamp" in {
       val client = SnowflakeClient(host, port, timeout)
-      val ts = client.getTimestamp().get()
+      val ts = Await.result(client.getTimestamp())
       println(ts)
       ts must be_>(0L)
     }
