@@ -3,6 +3,7 @@ package com.twitter.service.snowflake
 import com.twitter.logging.Logger
 import com.twitter.service.snowflake.gen.InvalidSystemClock
 import org.specs2.mutable._
+import com.twitter.util.Await
 
 class IdWorkerSpec extends SpecificationWithJUnit {
   val workerMask     = 0x000000000001F000L
@@ -53,17 +54,17 @@ class IdWorkerSpec extends SpecificationWithJUnit {
     "return an accurate timestamp" in {
       val s = new IdWorker(1, 1, reporter)
       val t = System.currentTimeMillis
-      (s.getTimestamp().get() - t) must be_<(50L)
+      (Await.result(s.getTimestamp()) - t) must be_<(50L)
     }
 
     "return the correct job id" in {
       val s = new IdWorker(1, 1, reporter)
-      s.getWorkerId().get() must be_==(1L)
+      Await.result(s.getWorkerId()) must be_==(1L)
     }
 
     "return the correct dc id" in {
       val s = new IdWorker(1, 1, reporter)
-      s.getDatacenterId().get() must be_==(1L)
+      Await.result(s.getDatacenterId()) must be_==(1L)
     }
 
     "properly mask worker id" in {
