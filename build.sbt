@@ -9,7 +9,7 @@ val archiva = "http://archiva.admin.bdap.enernoc.net:8080/"
 
 organization  := "com.twitter"
 
-version       := "1.0.2-SNAPSHOT"
+version       := "1.1-SNAPSHOT"
 
 scalaVersion  := "2.10.3"
 
@@ -34,11 +34,11 @@ resolvers += Resolver.sonatypeRepo("public")
 
 libraryDependencies ++= Seq(
   "org.apache.thrift" % "libthrift" % "0.8.0",
-  "com.twitter" %% "scrooge-core" % "3.11.1",
-  "com.twitter" %% "twitter-server" % "1.3.1",
-  "com.twitter" %% "util-zk" % "6.8.1",
-  "com.twitter" %% "util-zk-common" % "6.8.1",
-  "com.twitter" %% "ostrich" % "9.2.1",
+  "com.twitter" %% "scrooge-core" % "3.13.2",
+  "com.twitter" %% "twitter-server" % "1.6.1",
+  "com.twitter" %% "util-zk" % "6.13.2",
+  "com.twitter" %% "util-zk-common" % "6.13.2",
+  "com.twitter" %% "ostrich" % "9.4.2",
   "org.scalatest" %% "scalatest" % "2.0" % "test",
   "org.specs2" %% "specs2" % "2.3.6" % "test"
 )
