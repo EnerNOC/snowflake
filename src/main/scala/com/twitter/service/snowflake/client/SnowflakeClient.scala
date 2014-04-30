@@ -16,6 +16,7 @@ import com.twitter.finagle.tracing.BufferingTracer
 object SnowflakeClient {
   def apply(host: String, port: Int, soTimeoutMs: Int)(implicit man: TypeTag[Snowflake.FinagledClient]) = {
     val service = ClientBuilder()
+        .name("snowflake")
         .hosts(new InetSocketAddress(host, port))
         .codec(ThriftClientFramedCodec())
         .hostConnectionLimit(1)
